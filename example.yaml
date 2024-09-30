@@ -1,0 +1,45 @@
+job_templates:
+  - name: "example-job-template-sdk-1"
+    execution_role_arn: "arn:aws:iam::111111111111:role/emr-containers"
+    release_label: "emr-0.0.0-latest"
+    entry_point: "s3://dummy/dummy-eks2.jar"
+    entry_point_arguments:
+      - "-dummy"
+    log_group_name: "dummy"
+    persistent_app_ui: "ENABLED"
+    application_configurations:
+      - classification: "dummy"
+        properties:
+          jobsubmitter.node.selector.node-class": "dummy"
+      - classification: "dummy-metastore"
+        properties:
+          "dummy.metastore.schema.verification": "false"
+    parameter_configuration:
+      Dummy:
+        default_value: "dummy"
+        type: "STRING"
+    tags:
+      Environment: "dummy"
+      Project: "example-project-1"
+  - name: "example-job-template-sdk-2"
+    execution_role_arn: "arn:aws:iam::111111111111:role/emr-containers"
+    release_label: "emr-0.0.0-latest"
+    entry_point: "s3://dummy/dummy-eks2.jar"
+    entry_point_arguments:
+      - "-dummy"
+    log_group_name: "dummy"
+    persistent_app_ui: "ENABLED"
+    application_configurations:
+      - classification: "dummy"
+        properties:
+          jobsubmitter.node.selector.node-class": "dummy"
+      - classification: "dummy-metastore"
+        properties:
+          "dummy.metastore.schema.verification": "false"
+    parameter_configuration:
+      Dummy:
+        default_value: "dummy"
+        type: "STRING"
+    tags:
+      Environment: "dummy"
+      Project: "example-project-2"
