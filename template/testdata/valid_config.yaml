@@ -1,0 +1,33 @@
+job_templates:
+  - name: "custom-job"
+    execution_role_arn: "arn:aws:iam::123456789012:role/CustomRole"
+    release_label: "emr-6.4.0-latest"
+    entry_point: "s3://bucket/path/to/script.py"
+    entry_point_arguments:
+      - "--conf"
+      - "spark.executor.instances=4"
+    log_group_name: "my-log-group"
+    persistent_app_ui: "DISABLED"
+    spark_submit_pararmeters:
+      class: "org.example.ClassName"
+      master: "yarn"
+      deploy_mode: "cluster"
+      conf:
+        - "spark.dynamicAllocation.shuffleTracking.enabled=true"
+        - "spark.dynamicAllocation.minExecutors=${MinExecutors}"
+      packages: "org.reactivestreams:reactive-streams:1.0.4,io.projectreactor:reactor-core:3.6.6"
+    application_configurations:
+      - classification: "spark-hive-site"
+        properties:
+          "spark.executor.instances": "4"
+          "spark.executor.memory": "8G"
+    parameter_configuration:
+      MaxExecutors:
+        default_value: "10"
+        type: "NUMBER"
+      ConfigLocation:
+        default_value: "s3://another-config-location"
+        type: "STRING"
+    tags:
+      "Environment": "production"
+      "Owner": "team-x"
