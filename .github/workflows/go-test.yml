@@ -18,10 +18,10 @@ jobs:
 
     steps:
       - name: Checkout Code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
           go-version: ${{ matrix.go-version }}
           check-latest: true
@@ -36,19 +36,16 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-go-${{ matrix.go-version }}-
             ${{ runner.os }}-go-
-
+      
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.60
+      
       - name: Install Dependencies
         run: |
           go mod tidy
           go mod download
-
-      - name: Install GolangCI-Lint
-        run: |
-          curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.50.1
-
-      - name: Run GolangCI-Lint
-        run: |
-          golangci-lint run
 
       - name: Run Tests with Coverage
         run: |
