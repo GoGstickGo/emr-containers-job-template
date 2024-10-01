@@ -1,4 +1,4 @@
-# emr-containers-template
+# emr-containers-job-template
 
 
 This documentation provides an overview and guide on how to create an EMR (containers)  Job Template using the AWS SDK for Go v2.
