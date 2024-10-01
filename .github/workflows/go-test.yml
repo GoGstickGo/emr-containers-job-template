@@ -49,10 +49,5 @@ jobs:
 
       - name: Run Tests with Coverage
         run: |
-          go test ./... -coverprofile=coverage.out
+          go test -v ./... -coverprofile=coverage.out
 
-      - name: Upload Coverage Report
-        uses: actions/upload-artifact@v3
-        with:
-          name: coverage-report
-          path: coverage.out
