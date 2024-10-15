@@ -1,4 +1,4 @@
-package awsutils
+package awsutils_test
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GoGstickGo/emr-containers-template/awsutils"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 	"github.com/stretchr/testify/assert"
@@ -20,7 +21,7 @@ func (m *MockSSMAWSConfigLoader) LoadConfig(ctx context.Context, region string) 
 	return m.LoadConfigFunc(ctx, region)
 }
 
-// MockSSMClient is a mock implementation of SSMClient
+// MockSSMClient is a mock implementation of SSMClient.
 type MockSSMClient struct {
 	PutParameterFunc func(ctx context.Context, params *ssm.PutParameterInput, optFns ...func(*ssm.Options)) (*ssm.PutParameterOutput, error)
 }
@@ -30,7 +31,8 @@ func (m *MockSSMClient) PutParameter(ctx context.Context, params *ssm.PutParamet
 }
 
 func TestUpdateSSMParameter_Success(t *testing.T) {
-	// Mock the AWS configuration loader
+	t.Parallel()
+	// Mock the AWS configuration loader.
 	mockLoader := &MockSSMAWSConfigLoader{
 		LoadConfigFunc: func(ctx context.Context, region string) (aws.Config, error) {
 			// Return a dummy AWS config here
@@ -38,20 +40,20 @@ func TestUpdateSSMParameter_Success(t *testing.T) {
 		},
 	}
 
-	// Call the LoadConfig method on the mock loader
+	// Call the LoadConfig method on the mock loader.
 	cfg, err := mockLoader.LoadConfig(context.TODO(), "us-east-1")
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
 
-	// Assert the returned config (you can further assert the values if needed)
+	// Assert the returned config (you can further assert the values if needed).
 	if cfg.Region != "" {
 		t.Errorf("Expected empty region, got %s", cfg.Region)
 	}
 
 	mockClient := &MockSSMClient{
 		PutParameterFunc: func(ctx context.Context, params *ssm.PutParameterInput, optFns ...func(*ssm.Options)) (*ssm.PutParameterOutput, error) {
-			// Simulate success
+			// Simulate success.
 			return &ssm.PutParameterOutput{}, nil
 		},
 	}
@@ -61,36 +63,37 @@ func TestUpdateSSMParameter_Success(t *testing.T) {
 	ctxTimeOut, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// Act
-	err = UpdateSSMParameter(ctxTimeOut, mockClient, name, value)
+	// Act.
+	err = awsutils.UpdateSSMParameter(ctxTimeOut, mockClient, name, value)
 
-	// Assert
+	// Assert.
 	assert.NoError(t, err)
 }
 
 func TestUpdateSSMParameter_Failure(t *testing.T) {
-	// Mock the AWS configuration loader
+	t.Parallel()
+	// Mock the AWS configuration loader.
 	mockLoader := &MockSSMAWSConfigLoader{
 		LoadConfigFunc: func(ctx context.Context, region string) (aws.Config, error) {
-			// Return a dummy AWS config here
+			// Return a dummy AWS config here.
 			return aws.Config{}, nil
 		},
 	}
 
-	// Call the LoadConfig method on the mock loader
+	// Call the LoadConfig method on the mock loader.
 	cfg, err := mockLoader.LoadConfig(context.TODO(), "us-east-1")
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
 
-	// Assert the returned config (you can further assert the values if needed)
+	// Assert the returned config (you can further assert the values if needed).
 	if cfg.Region != "" {
 		t.Errorf("Expected empty region, got %s", cfg.Region)
 	}
 
 	mockClient := &MockSSMClient{
 		PutParameterFunc: func(ctx context.Context, params *ssm.PutParameterInput, optFns ...func(*ssm.Options)) (*ssm.PutParameterOutput, error) {
-			// Simulate failure
+			// Simulate failure.
 			return nil, fmt.Errorf("failed success")
 		},
 	}
@@ -100,9 +103,9 @@ func TestUpdateSSMParameter_Failure(t *testing.T) {
 	ctxTimeOut, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 
-	// Act
-	err = UpdateSSMParameter(ctxTimeOut, mockClient, name, value)
+	// Act.
+	err = awsutils.UpdateSSMParameter(ctxTimeOut, mockClient, name, value)
 
-	// Assert
+	// Assert.
 	assert.ErrorContainsf(t, err, "ssm update failed err", err.Error())
 }

@@ -1,4 +1,4 @@
-package awsutils
+package awsutils_test
 
 import (
 	"context"
@@ -7,13 +7,14 @@ import (
 	"testing"
 	"time"
 
+	"github.com/GoGstickGo/emr-containers-template/awsutils"
 	"github.com/GoGstickGo/emr-containers-template/template"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/emrcontainers"
 	"github.com/aws/aws-sdk-go-v2/service/emrcontainers/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
+	"github.com/stretchr/testify/require"
 )
 
 var def string = "value"
@@ -24,23 +25,26 @@ type MockEMRAWSConfigLoader struct {
 
 // LoadConfig calls the mock function, allowing the user to define the behavior.
 func (m *MockEMRAWSConfigLoader) LoadConfig(ctx context.Context, region string) (aws.Config, error) {
+
 	return m.LoadConfigFunc(ctx, region)
 }
 
-// MockEMRCclient is a mock implementation of SSMClient
+// MockEMRCclient is a mock implementation of SSMClient.
 type MockEMRCclient struct {
 	DescribeJobTemplateFunc func(ctx context.Context, params *emrcontainers.DescribeJobTemplateInput, optFns ...func(*emrcontainers.Options)) (*emrcontainers.DescribeJobTemplateOutput, error)
 	CreateJobTemplateFunc   func(ctx context.Context, params *emrcontainers.CreateJobTemplateInput, optFns ...func(*emrcontainers.Options)) (*emrcontainers.CreateJobTemplateOutput, error)
 }
 
 func (m *MockEMRCclient) DescribeJobTemplate(ctx context.Context, params *emrcontainers.DescribeJobTemplateInput, optFns ...func(*emrcontainers.Options)) (*emrcontainers.DescribeJobTemplateOutput, error) {
+
 	return m.DescribeJobTemplateFunc(ctx, params, optFns...)
 }
 func (m *MockEMRCclient) CreateJobTemplate(ctx context.Context, params *emrcontainers.CreateJobTemplateInput, optFns ...func(*emrcontainers.Options)) (*emrcontainers.CreateJobTemplateOutput, error) {
+
 	return m.CreateJobTemplateFunc(ctx, params, optFns...)
 }
 
-// MockParameterConfigurator is a mock implementation of ParameterConfigurator
+// MockParameterConfigurator is a mock implementation of ParameterConfigurator.
 type MockParameterConfigurator struct {
 	mock.Mock
 }
@@ -51,27 +55,31 @@ func (m *MockParameterConfigurator) Configure(paramConfig map[string]template.Te
 	if temp := args.Get(0); temp != nil {
 		output = temp.(map[string]types.TemplateParameterConfiguration)
 	}
+
 	return output, args.Error(1)
 }
 
-// MockSparkSubmitCommandBuilder is a mock implementation of SparkSubmitCommandBuilder
+// MockSparkSubmitCommandBuilder is a mock implementation of SparkSubmitCommandBuilder.
 type MockSparkSubmitCommandBuilder struct {
 	mock.Mock
 }
 
 func (m *MockSparkSubmitCommandBuilder) Build(params template.SparkSubmitParameters) (string, error) {
 	args := m.Called(params)
+
 	return args.String(0), args.Error(1)
 }
 
 func MockRandomIntn(returnValue int) func(int) int {
 	return func(n int) int {
+
 		return returnValue
 	}
 }
 
 func TestPrepareJobTemplateInput_Success(t *testing.T) {
-	// Prepare jobConfig with necessary fields
+	t.Parallel()
+	// Prepare jobConfig with necessary fields.
 	jobConfig := template.JobTemplateConfig{
 		Name: "test-job-template",
 		Tags: map[string]string{
@@ -109,7 +117,7 @@ func TestPrepareJobTemplateInput_Success(t *testing.T) {
 		},
 	}
 
-	// Expected outputs from helper functions
+	// Expected outputs from helper functions.
 	expectedParameterConfig := map[string]types.TemplateParameterConfiguration{
 		"Param1": {
 			DefaultValue: aws.String(def),
@@ -119,21 +127,21 @@ func TestPrepareJobTemplateInput_Success(t *testing.T) {
 
 	expectedSparkSubmitParametersConfig := "--master yarn --deploy-mode cluster --class org.apache.spark.examples.SparkPi --conf spark.executor.memory=2g --packages org.apache.spark:spark-sql_2.12:3.0.1"
 
-	// Initialize mocks
+	// Initialize mocks.
 	mockConfigurator := new(MockParameterConfigurator)
 	mockConfigurator.On("Configure", jobConfig.ParameterConfiguration).Return(expectedParameterConfig, nil)
 
 	mockCommandBuilder := new(MockSparkSubmitCommandBuilder)
 	mockCommandBuilder.On("Build", jobConfig.SparkSubmitParameters).Return(expectedSparkSubmitParametersConfig, nil)
 
-	// Mock randomIntn to return a fixed value
+	// Mock randomIntn to return a fixed value.
 	mockRandom := MockRandomIntn(12345)
 
-	// Call PrepareJobTemplateInput
-	input, err := PrepareJobTemplateInput(jobConfig, mockConfigurator, mockCommandBuilder, mockRandom)
+	// Call PrepareJobTemplateInput.
+	input, err := awsutils.PrepareJobTemplateInput(jobConfig, mockConfigurator, mockCommandBuilder, mockRandom)
 
-	// Assertions
-	assert.NoError(t, err)
+	// Assertions.
+	require.NoError(t, err)
 	assert.NotNil(t, input)
 	assert.Equal(t, aws.String("test-job-template"), input.Name)
 	assert.Equal(t, aws.String("12345"), input.ClientToken)
@@ -143,35 +151,36 @@ func TestPrepareJobTemplateInput_Success(t *testing.T) {
 	assert.Equal(t, aws.String("/aws/emr-containers/jobs"), input.JobTemplateData.ConfigurationOverrides.MonitoringConfiguration.CloudWatchMonitoringConfiguration.LogGroupName)
 	assert.Equal(t, aws.String("test-job-template"), input.JobTemplateData.ConfigurationOverrides.MonitoringConfiguration.CloudWatchMonitoringConfiguration.LogStreamNamePrefix)
 
-	// Verify SparkSubmitJobDriver fields
+	// Verify SparkSubmitJobDriver fields.
 	jobDriver := input.JobTemplateData.JobDriver.SparkSubmitJobDriver
 	assert.Equal(t, aws.String("s3://my-bucket/my-script.py"), jobDriver.EntryPoint)
 	assert.Equal(t, []string{"--input", "s3://my-bucket/input", "--output", "s3://my-bucket/output"}, jobDriver.EntryPointArguments)
 	assert.Equal(t, aws.String(expectedSparkSubmitParametersConfig), jobDriver.SparkSubmitParameters)
 
-	// Verify ConfigurationOverrides
+	// Verify ConfigurationOverrides.
 	configOverrides := input.JobTemplateData.ConfigurationOverrides
 	assert.Len(t, configOverrides.ApplicationConfiguration, 1)
 	assert.Equal(t, aws.String("spark-defaults"), configOverrides.ApplicationConfiguration[0].Classification)
 	assert.Equal(t, map[string]string{"spark.dynamicAllocation.enabled": "false"}, configOverrides.ApplicationConfiguration[0].Properties)
 
-	// Verify ParameterConfiguration
+	// Verify ParameterConfiguration.
 	assert.Equal(t, expectedParameterConfig, input.JobTemplateData.ParameterConfiguration)
 
-	// Verify JobTags
+	// Verify JobTags.
 	expectedTags := map[string]string{
 		"Environment": "test",
 		"Name":        "test-job-template",
 	}
 	assert.Equal(t, expectedTags, input.JobTemplateData.JobTags)
 
-	// Assert that the mocks were called as expected
+	// Assert that the mocks were called as expected.
 	mockConfigurator.AssertExpectations(t)
 	mockCommandBuilder.AssertExpectations(t)
 }
 
 func TestPrepareJobTemplateInput_HelperParameterConfigurationError(t *testing.T) {
-	// Prepare jobConfig with necessary fields
+	t.Parallel()
+	// Prepare jobConfig with necessary fields.
 	jobConfig := template.JobTemplateConfig{
 		Name: "test-job-template",
 		Tags: map[string]string{
@@ -209,32 +218,33 @@ func TestPrepareJobTemplateInput_HelperParameterConfigurationError(t *testing.T)
 		},
 	}
 
-	// Initialize mocks
+	// Initialize mocks.
 	mockConfigurator := new(MockParameterConfigurator)
 	mockConfigurator.On("Configure", jobConfig.ParameterConfiguration).Return(nil, fmt.Errorf("mocked helperParameterConfiguration error"))
 
-	// The command builder should not be called; hence, no expectation set
+	// The command builder should not be called; hence, no expectation set.
 	mockCommandBuilder := new(MockSparkSubmitCommandBuilder)
 
-	// Mock randomIntn (should not be used)
+	// Mock randomIntn (should not be used).
 	mockRandom := MockRandomIntn(12345)
 
-	// Call PrepareJobTemplateInput
-	input, err := PrepareJobTemplateInput(jobConfig, mockConfigurator, mockCommandBuilder, mockRandom)
+	// Call PrepareJobTemplateInput.
+	input, err := awsutils.PrepareJobTemplateInput(jobConfig, mockConfigurator, mockCommandBuilder, mockRandom)
 
-	// Assertions
-	assert.Error(t, err)
+	// Assertions.
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "parameter configuration block failed")
 	assert.Nil(t, input)
 
-	// Assert that helperParameterConfiguration was called
+	// Assert that helperParameterConfiguration was called.
 	mockConfigurator.AssertExpectations(t)
-	// Since helpersBuildSparkSubmitCommand should not be called, verify no expectations
+	// Since helpersBuildSparkSubmitCommand should not be called, verify no expectations.
 	mockCommandBuilder.AssertExpectations(t)
 }
 
 func TestPrepareJobTemplateInput_HelpersBuildSparkSubmitCommandError(t *testing.T) {
-	// Prepare jobConfig with necessary fields
+	t.Parallel()
+	// Prepare jobConfig with necessary fields.
 	jobConfig := template.JobTemplateConfig{
 		Name: "test-job-template",
 		Tags: map[string]string{
@@ -272,7 +282,7 @@ func TestPrepareJobTemplateInput_HelpersBuildSparkSubmitCommandError(t *testing.
 		},
 	}
 
-	// Expected outputs from helperParameterConfiguration
+	// Expected outputs from helperParameterConfiguration.
 	expectedParameterConfig := map[string]types.TemplateParameterConfiguration{
 		"Param1": {
 			DefaultValue: aws.String(def),
@@ -280,34 +290,35 @@ func TestPrepareJobTemplateInput_HelpersBuildSparkSubmitCommandError(t *testing.
 		},
 	}
 
-	// Initialize mocks
+	// Initialize mocks.
 	mockConfigurator := new(MockParameterConfigurator)
 	mockConfigurator.On("Configure", jobConfig.ParameterConfiguration).Return(expectedParameterConfig, nil)
 
 	mockCommandBuilder := new(MockSparkSubmitCommandBuilder)
 	mockCommandBuilder.On("Build", jobConfig.SparkSubmitParameters).Return("", fmt.Errorf("mocked helpersBuildSparkSubmitCommand error"))
 
-	// Mock randomIntn (should not be used)
+	// Mock randomIntn (should not be used).
 	mockRandom := MockRandomIntn(12345)
 
-	// Call PrepareJobTemplateInput
-	input, err := PrepareJobTemplateInput(jobConfig, mockConfigurator, mockCommandBuilder, mockRandom)
+	// Call PrepareJobTemplateInput.
+	input, err := awsutils.PrepareJobTemplateInput(jobConfig, mockConfigurator, mockCommandBuilder, mockRandom)
 
-	// Assertions
-	assert.Error(t, err)
+	// Assertions.
+	require.Error(t, err)
 	assert.Contains(t, err.Error(), "sparkSubmitParameters configuration block failed")
 	assert.Nil(t, input)
 
-	// Assert that the mocks were called as expected
+	// Assert that the mocks were called as expected.
 	mockConfigurator.AssertExpectations(t)
 	mockCommandBuilder.AssertExpectations(t)
 }
 
 func TestPrepareJobTemplateInput_NilTags(t *testing.T) {
-	// Prepare jobConfig with Tags as nil
+	t.Parallel()
+	// Prepare jobConfig with Tags as nil.
 	jobConfig := template.JobTemplateConfig{
 		Name:             "test-job-template",
-		Tags:             nil, // Tags are nil
+		Tags:             nil, // Tags are nil.
 		ExecutionRoleArn: "arn:aws:iam::123456789012:role/EMRExecutionRole",
 		ReleaseLabel:     "emr-6.2.0",
 		EntryPoint:       "s3://my-bucket/my-script.py",
@@ -340,7 +351,7 @@ func TestPrepareJobTemplateInput_NilTags(t *testing.T) {
 		},
 	}
 
-	// Expected outputs from helper functions
+	// Expected outputs from helper functions.
 	expectedParameterConfig := map[string]types.TemplateParameterConfiguration{
 		"Param1": {
 			DefaultValue: aws.String(def),
@@ -350,21 +361,21 @@ func TestPrepareJobTemplateInput_NilTags(t *testing.T) {
 
 	expectedSparkSubmitParametersConfig := "--master yarn --deploy-mode cluster --class org.apache.spark.examples.SparkPi --conf spark.executor.memory=2g --packages org.apache.spark:spark-sql_2.12:3.0.1"
 
-	// Initialize mocks
+	// Initialize mocks.
 	mockConfigurator := new(MockParameterConfigurator)
 	mockConfigurator.On("Configure", jobConfig.ParameterConfiguration).Return(expectedParameterConfig, nil)
 
 	mockCommandBuilder := new(MockSparkSubmitCommandBuilder)
 	mockCommandBuilder.On("Build", jobConfig.SparkSubmitParameters).Return(expectedSparkSubmitParametersConfig, nil)
 
-	// Mock randomIntn to return a fixed value
+	// Mock randomIntn to return a fixed value.
 	mockRandom := MockRandomIntn(12345)
 
-	// Call PrepareJobTemplateInput
-	input, err := PrepareJobTemplateInput(jobConfig, mockConfigurator, mockCommandBuilder, mockRandom)
+	// Call PrepareJobTemplateInput.
+	input, err := awsutils.PrepareJobTemplateInput(jobConfig, mockConfigurator, mockCommandBuilder, mockRandom)
 
-	// Assertions
-	assert.NoError(t, err)
+	// Assertions.
+	require.NoError(t, err)
 	assert.NotNil(t, input)
 	assert.Equal(t, aws.String("test-job-template"), input.Name)
 	assert.Equal(t, aws.String("12345"), input.ClientToken)
@@ -374,50 +385,51 @@ func TestPrepareJobTemplateInput_NilTags(t *testing.T) {
 	assert.Equal(t, aws.String("/aws/emr-containers/jobs"), input.JobTemplateData.ConfigurationOverrides.MonitoringConfiguration.CloudWatchMonitoringConfiguration.LogGroupName)
 	assert.Equal(t, aws.String("test-job-template"), input.JobTemplateData.ConfigurationOverrides.MonitoringConfiguration.CloudWatchMonitoringConfiguration.LogStreamNamePrefix)
 
-	// Verify SparkSubmitJobDriver fields
+	// Verify SparkSubmitJobDriver fields.
 	jobDriver := input.JobTemplateData.JobDriver.SparkSubmitJobDriver
 	assert.Equal(t, aws.String("s3://my-bucket/my-script.py"), jobDriver.EntryPoint)
 	assert.Equal(t, []string{"--input", "s3://my-bucket/input", "--output", "s3://my-bucket/output"}, jobDriver.EntryPointArguments)
 	assert.Equal(t, aws.String(expectedSparkSubmitParametersConfig), jobDriver.SparkSubmitParameters)
 
-	// Verify ConfigurationOverrides
+	// Verify ConfigurationOverrides.
 	configOverrides := input.JobTemplateData.ConfigurationOverrides
 	assert.Len(t, configOverrides.ApplicationConfiguration, 1)
 	assert.Equal(t, aws.String("spark-defaults"), configOverrides.ApplicationConfiguration[0].Classification)
 	assert.Equal(t, map[string]string{"spark.dynamicAllocation.enabled": "false"}, configOverrides.ApplicationConfiguration[0].Properties)
 
-	// Verify ParameterConfiguration
+	// Verify ParameterConfiguration.
 	assert.Equal(t, expectedParameterConfig, input.JobTemplateData.ParameterConfiguration)
 
-	// Verify JobTags
+	// Verify JobTags.
 	expectedTags := map[string]string{
 		"Name": "test-job-template",
 	}
 	assert.Equal(t, expectedTags, input.JobTemplateData.JobTags)
 
-	// Assert that the mocks were called as expected
+	// Assert that the mocks were called as expected.
 	mockConfigurator.AssertExpectations(t)
 	mockCommandBuilder.AssertExpectations(t)
 }
 
 func TestDescribeJobTemplate_Success(t *testing.T) {
+	t.Parallel()
 	ctxTimeOut, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	// Mock the AWS configuration loader
+	// Mock the AWS configuration loader.
 	mockLoader := &MockEMRAWSConfigLoader{
 		LoadConfigFunc: func(ctx context.Context, region string) (aws.Config, error) {
-			// Return a dummy AWS config here
+			// Return a dummy AWS config here.
 			return aws.Config{}, nil
 		},
 	}
 
-	// Call the LoadConfig method on the mock loader
+	// Call the LoadConfig method on the mock loader.
 	cfg, err := mockLoader.LoadConfig(context.TODO(), "us-east-1")
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
 
-	// Assert the returned config (you can further assert the values if needed)
+	// Assert the returned config (you can further assert the values if needed).
 	if cfg.Region != "" {
 		t.Errorf("Expected empty region, got %s", cfg.Region)
 	}
@@ -425,33 +437,35 @@ func TestDescribeJobTemplate_Success(t *testing.T) {
 
 	mockClient := &MockEMRCclient{
 		DescribeJobTemplateFunc: func(ctx context.Context, params *emrcontainers.DescribeJobTemplateInput, optFns ...func(*emrcontainers.Options)) (*emrcontainers.DescribeJobTemplateOutput, error) {
+
 			return &emrcontainers.DescribeJobTemplateOutput{}, nil
 		},
 	}
 
-	_, err = DescribeJobTemplate(ctxTimeOut, mockClient, jobTemplateID)
+	_, err = awsutils.DescribeJobTemplate(ctxTimeOut, mockClient, jobTemplateID)
 
 	assert.NoError(t, err)
 }
 
 func TestDescribeJobTemplate_Failure(t *testing.T) {
+	t.Parallel()
 	ctxTimeOut, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	// Mock the AWS configuration loader
+	// Mock the AWS configuration loader.
 	mockLoader := &MockEMRAWSConfigLoader{
 		LoadConfigFunc: func(ctx context.Context, region string) (aws.Config, error) {
-			// Return a dummy AWS config here
+			// Return a dummy AWS config here.
 			return aws.Config{}, nil
 		},
 	}
 
-	// Call the LoadConfig method on the mock loader
+	// Call the LoadConfig method on the mock loader.
 	cfg, err := mockLoader.LoadConfig(context.TODO(), "us-east-1")
 	if err != nil {
 		t.Fatalf("Expected no error, got %v", err)
 	}
 
-	// Assert the returned config (you can further assert the values if needed)
+	// Assert the returned config (you can further assert the values if needed).
 	if cfg.Region != "" {
 		t.Errorf("Expected empty region, got %s", cfg.Region)
 	}
@@ -463,12 +477,13 @@ func TestDescribeJobTemplate_Failure(t *testing.T) {
 		},
 	}
 
-	_, err = DescribeJobTemplate(ctxTimeOut, mockClient, jobTemplateID)
+	_, err = awsutils.DescribeJobTemplate(ctxTimeOut, mockClient, jobTemplateID)
 
-	// Assert
+	// Assert.
 	assert.ErrorContainsf(t, err, "failed to describe job template:", err.Error())
 }
 func Test_helperParameterConfiguration(t *testing.T) {
+	t.Parallel()
 	var def string = "default"
 
 	type args struct {
@@ -512,12 +527,14 @@ func Test_helperParameterConfiguration(t *testing.T) {
 			wantErr: true,
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := helperParameterConfiguration(tt.args.paramConfig)
+			t.Parallel() // Mark each sub-test as parallel.
+
+			got, err := awsutils.HelperParameterConfiguration(tt.args.paramConfig)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("helperParameterConfiguration() error = %v, wantErr %v", err, tt.wantErr)
+
 				return
 			}
 			if !reflect.DeepEqual(got, tt.want) {
@@ -528,6 +545,7 @@ func Test_helperParameterConfiguration(t *testing.T) {
 }
 
 func Test_helpersBuildSparkSubmitCommand(t *testing.T) {
+	t.Parallel()
 	type args struct {
 		params template.SparkSubmitParameters
 	}
@@ -684,9 +702,12 @@ func Test_helpersBuildSparkSubmitCommand(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := helpersBuildSparkSubmitCommand(tt.args.params)
+			t.Parallel() // Mark each sub-test as parallel.
+
+			got, err := awsutils.HelpersBuildSparkSubmitCommand(tt.args.params)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("helpersBuildSparkSubmitCommand() error = %v, wantErr %v", err, tt.wantErr)
+
 				return
 			}
 			if got != tt.want {

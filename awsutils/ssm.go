@@ -26,7 +26,9 @@ func UpdateSSMParameter(ctx context.Context, client SSM, name, value string) err
 
 	_, err := client.PutParameter(ctx, input)
 	if err != nil {
-		return fmt.Errorf("ssm update failed err: %v", err)
+
+		return fmt.Errorf("ssm update failed err: %w", err)
 	}
+
 	return nil
 }
