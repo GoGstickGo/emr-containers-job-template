@@ -1,20 +1,22 @@
-package template
+package template_test
 
 import (
 	"testing"
 
+	"github.com/GoGstickGo/emr-containers-template/template"
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/google/go-cmp/cmp"
 )
 
 func TestLoadConfig(t *testing.T) {
+	t.Parallel()
 	type args struct {
 		filePath string
 	}
 	tests := []struct {
 		name    string
 		args    args
-		want    *Config
+		want    *template.Config
 		wantErr bool
 	}{
 		{
@@ -22,8 +24,8 @@ func TestLoadConfig(t *testing.T) {
 			args: args{
 				filePath: "testdata/valid_config.yaml",
 			},
-			want: &Config{
-				JobTemplates: []JobTemplateConfig{
+			want: &template.Config{
+				JobTemplates: []template.JobTemplateConfig{
 					{
 						Name:             "custom-job",
 						ExecutionRoleArn: "arn:aws:iam::123456789012:role/CustomRole",
@@ -36,7 +38,7 @@ func TestLoadConfig(t *testing.T) {
 							"Environment": "production",
 							"Owner":       "team-x",
 						},
-						SparkSubmitParameters: SparkSubmitParameters{
+						SparkSubmitParameters: template.SparkSubmitParameters{
 							Class:      "org.example.ClassName",
 							Master:     "yarn",
 							DeployMode: "cluster",
@@ -48,7 +50,7 @@ func TestLoadConfig(t *testing.T) {
 						},
 						PersistentAppUI: "DISABLED",
 						LogGroupName:    "my-log-group",
-						ParameterConfiguration: map[string]TemplateParameterConfiguration{
+						ParameterConfiguration: map[string]template.TemplateParameterConfiguration{
 							"MaxExecutors": {
 								DefaultValue: aws.String("10"),
 								Type:         "NUMBER",
@@ -58,7 +60,7 @@ func TestLoadConfig(t *testing.T) {
 								Type:         "STRING",
 							},
 						},
-						ApplicationConfigurations: []ApplicationConfiguration{
+						ApplicationConfigurations: []template.ApplicationConfiguration{
 							{
 								Classification: "spark-hive-site",
 								Properties: map[string]string{
@@ -83,9 +85,12 @@ func TestLoadConfig(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := LoadConfig(tt.args.filePath)
+			t.Parallel() // Mark each sub-test as parallel.
+
+			got, err := template.LoadConfig(tt.args.filePath)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("LoadConfig() error = %v, wantErr %v", err, tt.wantErr)
+
 				return
 			}
 			if diff := cmp.Diff(got, tt.want); diff != "" {

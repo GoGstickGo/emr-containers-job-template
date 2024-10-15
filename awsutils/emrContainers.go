@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/GoGstickGo/emr-containers-template/template"
-
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/emrcontainers"
 	"github.com/aws/aws-sdk-go-v2/service/emrcontainers/types"
@@ -23,13 +22,13 @@ type SparkSubmitCommandBuilder interface {
 type RealParameterConfigurator struct{}
 
 func (r *RealParameterConfigurator) Configure(paramConfig map[string]template.TemplateParameterConfiguration) (map[string]types.TemplateParameterConfiguration, error) {
-	return helperParameterConfiguration(paramConfig)
+	return HelperParameterConfiguration(paramConfig)
 }
 
 type RealSparkSubmitCommandBuilder struct{}
 
 func (r *RealSparkSubmitCommandBuilder) Build(params template.SparkSubmitParameters) (string, error) {
-	return helpersBuildSparkSubmitCommand(params)
+	return HelpersBuildSparkSubmitCommand(params)
 }
 
 type EMRC interface {
@@ -38,18 +37,18 @@ type EMRC interface {
 }
 
 func DescribeJobTemplate(ctx context.Context, client EMRC, jobTemplateID string) (*types.JobTemplate, error) {
-	// Prepare the input parameters for the DescribeJobTemplate API call
+	// Prepare the input parameters for the DescribeJobTemplate API call.
 	input := &emrcontainers.DescribeJobTemplateInput{
 		Id: &jobTemplateID,
 	}
 
-	// Call the DescribeJobTemplate API
+	// Call the DescribeJobTemplate API.
 	resp, err := client.DescribeJobTemplate(ctx, input)
 	if err != nil {
 		return nil, fmt.Errorf("failed to describe job template: %w", err)
 	}
 
-	// Return the job template details
+	// Return the job template details.
 	return resp.JobTemplate, nil
 }
 
@@ -65,19 +64,19 @@ func PrepareJobTemplateInput(
 	}
 	jobConfig.Tags["Name"] = jobConfig.Name
 
-	// Call helperParameterConfiguration
+	// Call helperParameterConfiguration.
 	parameterConfig, err := parameterConfigurator.Configure(jobConfig.ParameterConfiguration)
 	if err != nil {
-		return nil, fmt.Errorf("parameter configuration block failed: %v", err)
+		return nil, fmt.Errorf("parameter configuration block failed: %w", err)
 	}
 
-	// Call helpersBuildSparkSubmitCommand
+	// Call helpersBuildSparkSubmitCommand.
 	sparkSubmitParametersConfig, err := sparkSubmitCommandBuilder.Build(jobConfig.SparkSubmitParameters)
 	if err != nil {
-		return nil, fmt.Errorf("sparkSubmitParameters configuration block failed: %v", err)
+		return nil, fmt.Errorf("sparkSubmitParameters configuration block failed: %w", err)
 	}
 
-	// Prepare application configurations
+	// Prepare application configurations.
 	var appConfigs []types.Configuration
 	for _, appConfig := range jobConfig.ApplicationConfigurations {
 		appConfigs = append(appConfigs, types.Configuration{
@@ -86,10 +85,10 @@ func PrepareJobTemplateInput(
 		})
 	}
 
-	// Generate a client token using the injected randomIntn function
+	// Generate a client token using the injected randomIntn function.
 	clientToken := aws.String(fmt.Sprintf("%d", randomIntn(100000)))
 
-	// Construct the CreateJobTemplateInput
+	// Construct the CreateJobTemplateInput.
 	input := &emrcontainers.CreateJobTemplateInput{
 		Name: aws.String(jobConfig.Name),
 		JobTemplateData: &types.JobTemplateData{
@@ -125,14 +124,14 @@ func PrepareJobTemplateInput(
 func CreateJobTemplate(ctx context.Context, client EMRC, input *emrcontainers.CreateJobTemplateInput) (string, error) {
 	result, err := client.CreateJobTemplate(ctx, input)
 	if err != nil {
-		return "", fmt.Errorf("create job template returned error: %v", err)
+		return "", fmt.Errorf("create job template returned error: %w", err)
 	}
 
 	return aws.ToString(result.Id), nil
 }
 
-// convertParameterConfiguration converts YAML parameter configuration to AWS SDK format
-func helperParameterConfiguration(paramConfig map[string]template.TemplateParameterConfiguration) (map[string]types.TemplateParameterConfiguration, error) {
+// convertParameterConfiguration converts YAML parameter configuration to AWS SDK format.
+func HelperParameterConfiguration(paramConfig map[string]template.TemplateParameterConfiguration) (map[string]types.TemplateParameterConfiguration, error) {
 	converted := make(map[string]types.TemplateParameterConfiguration)
 	for key, param := range paramConfig {
 		var paramType types.TemplateParameterDataType
@@ -150,11 +149,12 @@ func helperParameterConfiguration(paramConfig map[string]template.TemplateParame
 			Type:         paramType,
 		}
 	}
+
 	return converted, nil
 }
 
-// Function to build the command string from SparkSubmitParameters with error handling
-func helpersBuildSparkSubmitCommand(params template.SparkSubmitParameters) (string, error) {
+// Function to build the command string from SparkSubmitParameters with error handling.
+func HelpersBuildSparkSubmitCommand(params template.SparkSubmitParameters) (string, error) {
 	// Validate required fields
 	if params.Master == "" {
 		return "", fmt.Errorf("missing required parameter: master")
@@ -166,7 +166,7 @@ func helpersBuildSparkSubmitCommand(params template.SparkSubmitParameters) (stri
 		return "", fmt.Errorf("missing required parameter: class")
 	}
 
-	// Build the command string
+	// Build the command string.
 	var result strings.Builder
 
 	result.WriteString("--master " + params.Master + " ")

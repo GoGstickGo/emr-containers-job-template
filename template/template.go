@@ -48,19 +48,19 @@ type Config struct {
 func LoadConfig(filePath string) (*Config, error) {
 	file, err := os.Open(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("opening file func returned error:%v", err)
+		return nil, fmt.Errorf("opening file func returned error:%w", err)
 	}
 	defer file.Close()
 
 	data, err := io.ReadAll(file)
 	if err != nil {
-		return nil, fmt.Errorf("readall func returned error:%v", err)
+		return nil, fmt.Errorf("read all func returned error:%w", err)
 	}
 
 	var config Config
 	err = yaml.Unmarshal(data, &config)
 	if err != nil {
-		return nil, fmt.Errorf("unmarshal func returned error:%v", err)
+		return nil, fmt.Errorf("unmarshal func returned error:%w", err)
 	}
 
 	return &config, nil
